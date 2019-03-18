@@ -4,7 +4,7 @@
 ## Month to be used
 month <- 1:12
 names(month) <- c("January","February","March","April","May","June","July","August","September","October","November","December")
-
+#TRYING THIS NOW
 
 ### Transforming raster data to ggplot format----
 ## To individual data frames, maintaining coordinates for plotting
