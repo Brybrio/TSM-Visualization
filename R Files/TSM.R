@@ -1,208 +1,20 @@
-####Initial Setup----
-#Packages needed for TSM
+####
+# CALCULATING TSM FOR NORMAL, +1.5°C & +2°C SCENARIOS
+####
+
+### INITIAL SETUP----
+## Packages needed for TSM
 pkgs <- c('raster','rasterVis','rgdal','ndcf4','plotly','pdftools','tidyverse','elevatr','ggridges','reshape2','ggplot2','gridExtra')
 install.packages(pkgs)
 lapply(pkgs, require, character.only = TRUE)
 
-#install.packages('devtools')
-#library(devtools)
-#devtools::install_github(build_vignettes = TRUE,repo = "trenchproject/TrenchR",force=TRUE)
 
-##Setting Working Directory
-fdir = "C:\\Users\\Bryan\\Desktop\\TSM\\"
+## Setting Working Directory
+fdir = "C:\\Users\\Bryan\\Google Drive\\TSMVisualization\\"
 setwd(fdir)
 
-####Data----
-#list1 <- function(x)unlist(paste("25_shade/TA1cm_soil_25_",x,".nc",sep=""))
-#rlist1 <- list1(1:12)
 
-#Animal to be used
-org <- c("Uta stansburiana")
-
-###Global lizard data
-##Global dataset for species and CTmax/min
-globtherm = read.csv("Data\\Temperatures\\GlobalTherm_upload_10_11_17.csv", 
-                     header = TRUE, na.strings = "")
-ectotherms = subset(globtherm, Class == "Lepidosauria", 
-                    select = c(Genus, Species, Class, Tmax, tmin)) #Subsetting for Lizards () w/ Tmax & tmin only
-ectotherms$Binomial = paste(ectotherms$Genus, ectotherms$Species) #Pasting together species and genus names to use as factor
-attach(ectotherms) #Easier to grab variables
-
-###Species specific data
-##Masses for lizards in g
-lizards <-read.csv("Data\\Traits\\jzo_696_sm_appendix-s1.csv",header = TRUE, na.strings = "")
-mss = function(Binomial){
-  return(mass <<- lizards$Weight..g.[lizards$Species==Binomial])
-}
-mss(org)
-
-##SVL in mm. Source #1
-svlf = function(Binomial){
-  return(svl <<- lizards$SVL..mm.[lizards$Species==Binomial])
-svlf(org)
-}
-
-##SVL in mm. Source #2
-SVL <- pdf_text("Data\\Traits\\geb_414_sm_apps2.pdf") %>% readr::read_lines(skip=8) #First part not usable so subsetting from after 8 lines
-SVL <- as.data.frame(SVL) %>% separate(SVL,c("Family", "Taxon","Name","SVL"),sep="\\s+") #Separating strings. Only 4 and the rest are discarded
-SVL[SVL==""]  <- NA #Empty cells to NA
-SVL <- na.omit(SVL) #Deleting all empty lines
-SVL$Name <- gsub("_", " ", SVL$Name) # Separating the names so they match with "Binomial"
-#Extracting SVL
-svlf2 = function(Binomial){
-  return(svl2 <<- as.numeric(SVL$SVL[SVL$Name==Binomial]))
-}
-svlf2(org)
-
-##CTmax
-ctm = function(Binomial){
-  return(ctmax <<- ectotherms$Tmax[ectotherms$Binomial==Binomial])
-}
-ctm(org)
-
-###Shapefile
-shp = function(Binomial){
-  return(shape <<- readOGR(dsn="Data\\Ranges\\REPTILES\\Files", Binomial))
-}
-shp(org)
-
-###NC files
-#Variables to locate climate data
-substrate <- c("rock","soil","sand")
-depth <- c(0,3,5,10,20,30,50,100)
-shade <- c(0,25,50,75,90,100)
-month <- c(1:12)
-hour <- c(1:24)
-doy <- list(15,45,75,105,135,165,195,225,255,285,315,345)
-doy <- c(15,45,75,105,135,165,195,225,255,285,315,345)
-rho_S <- 0.7
-
-
-##Subtrate temperature
-substrate = function(substrate,shade,depth,month){
-  ncfile <- unlist(paste("Data\\Microclim\\",shade,"_","shade","\\","D",depth,"cm","_",substrate,"_",
-                  shade,"_",month,".nc",sep="",collapse=NULL)) #NC file location for substrate temp
-  
-  return(Tg <<- lapply(ncfile,brick))
-}
-substrate("soil",50,0,1:12)
-
-##Air temperature
-air = function(substrate,shade,month){
-  ncfile <- unlist(paste("Data\\Microclim\\",shade,"_","shade","\\","TA1cm","_",substrate,"_",
-                  shade,"_",month,".nc",sep="",collapse=NULL)) #NC file location for substrate temp
-  return(Ta <<- lapply(ncfile,brick))
-}
-air("soil",50,1:12)
-
-##Wind speed
-wind = function(x){
-  ncfile <- unlist(paste("Data\\Microclim\\wind_speed_ms_1cm\\V1cm_",x,".nc",sep=""))
-  return(u <<- lapply(ncfile,brick))
-}
-wind(1:12)
-
-##Solar Radiation
-solrad = function(x){
-  ncfile <- unlist(paste("Data\\Microclim\\solar_radiation_Wm2\\SOLR_",x,".nc",sep=""))
-  return(sr <<- lapply(ncfile,brick))
-}
-solrad(1:12)
-
-##Zenith Angle
-zenagl = function(x){
-  ncfile <- unlist(paste("Data\\Microclim\\zenith_angle\\ZEN_",x,".nc",sep=""))
-  return(psi <<- lapply(ncfile,brick))
-}
-zenagl(1:12)
-
-####Analysis wih function----
-
-##First cropping to avoid dealing with a lot of data - Extent is changed
-crp <- function(x)crop(x,extent(shape))
-
-Ta <- lapply(Ta, crp)
-Tg <- lapply(Tg, crp)
-u <- lapply(u, crp)
-sr <- lapply(sr, crp)
-psi <- lapply(psi, crp)
-
-
-##Then masking unwanted values - also possible with extract but same result
-mas <- function(x)mask(x,shape)
-
-Ta <- lapply(Ta, mas)
-Tg <- lapply(Tg, mas)
-u <- lapply(u, mas)
-sr <- lapply(sr,mas)
-psi <- lapply(psi,mas)
-
-##Elevation using ELEVATR package
-elevation <- get_elev_raster(Ta[[1]],z=5)
-elevation <- resample(elevation, Ta[[1]], method='bilinear')
-elevation <- replicate(12,elevation)
-
-##Runnign the function
-Te <- mapply(Tb_lizard,Ta, Tg, u, svl, mass, psi, rho_S, elevation, doy, sun=TRUE, surface=TRUE, alpha_S=0.9, alpha_L=0.965, epsilon_s=0.965, F_d=0.8, F_r=0.5, F_a=0.5, F_g=0.5) 
-
-#Final Substraction
-Tsm <- lapply(Te,FUN=function(x){ctmax-x})
-
-###Plotting----
-
-###Adding another layer
-Tx <- Ta+1.5 
-Te <- mapply(Tb_lizard,Tx, Tg, u, svl, mass, psi, rho_S, elevation, doy, sun=TRUE, surface=TRUE, alpha_S=0.9, alpha_L=0.965, epsilon_s=0.965, F_d=0.8, F_r=0.5, F_a=0.5, F_g=0.5) 
-
-
-
-##Changing projection for plotting
-ccrs <- function(x)projectRaster(x,crs=crs(shape))
-Tsm <- lapply(Tsm, ccrs)
-plot(Tsm[[6]],"X1")
-plot(shape, add=TRUE)
-
-
-###Plotting means for the data for 3D plots
-fmean <- function(x)cellStats(x,stat='mean')
-tsmean <- lapply(Tsm,fmean)
-
-#Turning the lists into an array
-tsmean <- do.call(cbind, tsmean)
-#tsmean <- t(tsmean)
-
-###Plotting TSM
-###Using the ctmax
-zero <- array(0, dim=dim(tsmean))
-
-rownames(tsmean) <- c("12 AM","01 AM","02 AM","03 AM","04 AM","05 AM","06 AM","07 AM","08 AM","09 AM","10 AM","11 AM","12 PM","01 PM","02 PM","03 PM","04 PM","05 PM","06 PM","07 PM","08 PM","09 PM","10 PM","11 PM")
-
-colnames(tsmean) <- c("January","February","March","April","May","June","July","August","September","October","November","December")
-
-p <- plot_ly() %>% add_surface(z=~tsmean) %>% add_surface(z=~zero) %>% layout(title="TSM", scene=list(
-  xaxis = list(title = "Month"),
-  yaxis = list(title = "Hour"),
-  zaxis = list(title = "Tsm")))
-p #3D graph
-
-
-
-
-###Plotting Te
-Tep <- lapply(Te, ccrs)
-Tep <- lapply(Tep,fmean)
-Tep <- do.call(cbind, Tep)
-CTmax <- array(ctmax, dim=dim(tsmean))
-p <- plot_ly() %>% add_surface(z=~Tep) %>% add_surface(z=~CTmax) %>% layout(title="TSM", scene=list(
-  xaxis = list(title = "Month"),
-  yaxis = list(title = "Hour"),
-  zaxis = list(title = "Tsm")))
-p #3D graph
-
-tsmeandf <- as.data.frame(tsmean)
-
-
-###Others----
+## Te Function
 Tb_lizard=function(Ta, Tg, u, svl, mass, psi, rho_S, elevation, doy, sun=TRUE, surface=TRUE, alpha_S=0.9, alpha_L=0.965, epsilon_s=0.965, F_d=0.8, F_r=0.5, F_a=0.5, F_g=0.5){
   
   psi= psi*pi/180 #convert zenith angle to radians
@@ -274,6 +86,189 @@ Tb_lizard=function(Ta, Tg, u, svl, mass, psi, rho_S, elevation, doy, sun=TRUE, s
   
   return(Te) 
 }
+
+
+### LIZARD DATA----
+## Global dataset for species and CTmax/min
+globtherm = read.csv("Data\\Traits\\GlobalTherm_upload_10_11_17.csv", header = TRUE, na.strings = "")
+ectotherms = subset(globtherm, Class == "Lepidosauria", select = c(Genus, Species, Class, Tmax, tmin)) # Subsetting for Lizards (Lepidosuria) w/ Tmax (& tmin)
+ectotherms$Binomial = paste(ectotherms$Genus, ectotherms$Species) # Pasting together species and genus names to use for matching
+attach(ectotherms) # Easier to grab "variables". Also to incude renamed species posteriorly
+
+
+##Organism to be used
+org <- c("Ctenotus uber") #Still have to create function to run the entire code
+
+
+## Shapefile
+shp = function(Binomial){
+  shape <<- readOGR(dsn="Data\\Ranges\\REPTILES\\Files", Binomial)
+  return(crs(shape) <<- crs("+init=epsg:4326"))
+}
+shp(org)
+
+
+## Masses for lizards in g
+lizards <-read.csv("Data\\Traits\\jzo_696_sm_appendix-s1.csv",header = TRUE, na.strings = "")
+mss = function(Binomial){
+  return(mass <<- lizards$Weight..g.[lizards$Species==Binomial])
+}
+mss(org)
+
+
+## SVL in mm. Source #1
+svlf = function(Binomial){
+  return(svl <<- lizards$SVL..mm.[lizards$Species==Binomial])
+  svlf(org)
+}
+svlf(org)
+
+
+## SVL in mm. Source #2
+SVL <- pdf_text("Data\\Traits\\geb_414_sm_apps2.pdf") %>% readr::read_lines(skip=8) # First part not usable so subsetting from after 8 lines
+SVL <- as.data.frame(SVL) %>% separate(SVL,c("Family", "Taxon","Name","SVL"),sep="\\s+") # Separating strings. Only 4 and the rest are discarded
+SVL[SVL==""]  <- NA # Empty cells to NA
+SVL <- na.omit(SVL) # Deleting all empty lines
+SVL$Name <- gsub("_", " ", SVL$Name) # Separating the names so they match with "Binomial"
+# Extracting SVL
+svlf2 = function(Binomial){
+  return(svl2 <<- as.numeric(SVL$SVL[SVL$Name==Binomial]))
+}
+svlf2(org)
+
+
+## CTmax
+ctm = function(Binomial){
+  return(ctmax <<- ectotherms$Tmax[ectotherms$Binomial==Binomial])
+}
+ctm(org)
+
+
+
+### MICROCLIM DATA----
+## Variables to locate climate data
+substrate <- c("rock","soil","sand")
+depth <- c(0,3,5,10,20,30,50,100)
+shade <- c(0,25,50,75,90,100)
+month <- c(1:12)
+hour <- c(1:24)
+doy <- list(15,45,75,105,135,165,195,225,255,285,315,345)
+doy <- c(15,45,75,105,135,165,195,225,255,285,315,345)
+rho_S <- 0.7
+
+
+## Subtrate temperature
+substrate = function(substrate,shade,depth,month){
+  ncfile <- unlist(paste("Data\\Microclim\\",shade,"_","shade","\\","D",depth,"cm","_",substrate,"_",
+                         shade,"_",month,".nc",sep="",collapse=NULL)) # NC file location for substrate temp
+  
+  return(Tg <<- lapply(ncfile,brick))
+}
+substrate("soil",0,0,1:12)
+
+
+## Air temperature
+air = function(substrate,shade,month){
+  ncfile <- unlist(paste("Data\\Microclim\\",shade,"_","shade","\\","TA1cm","_",substrate,"_",
+                         shade,"_",month,".nc",sep="",collapse=NULL)) # NC file location for substrate temp
+  return(Ta <<- lapply(ncfile,brick))
+}
+air("soil",0,1:12)
+
+
+## Wind speed
+wind = function(month){
+  ncfile <- unlist(paste("Data\\Microclim\\wind_speed_ms_1cm\\V1cm_",month,".nc",sep=""))
+  return(u <<- lapply(ncfile,brick))
+}
+wind(1:12)
+
+
+## Zenith Angle
+zenagl = function(month){
+  ncfile <- unlist(paste("Data\\Microclim\\zenith_angle\\ZEN_",month,".nc",sep=""))
+  return(psi <<- lapply(ncfile,brick))
+}
+zenagl(1:12)
+
+
+## Elevation 
+elevation <- get_elev_raster(shape,z=5) #Zoom level can be modified
+elevation <- resample(elevation, Ta[[1]], method='bilinear') #Making rasteres match more closely
+elevation <- replicate(12,elevation) #The function would not work without a list
+
+
+### PROCESSING----
+## First cropping to avoid dealing with a lot of data - Extent is changed only
+crp <- function(x)crop(x,extent(shape))
+Ta <- lapply(Ta, crp)
+Tg <- lapply(Tg, crp)
+u <- lapply(u, crp)
+psi <- lapply(psi, crp)
+elevation <- lapply(elevation, crp)
+
+
+## Then masking unwanted values - also possible with extract but same result
+mas <- function(x)mask(x,shape)
+Ta <- lapply(Ta, mas)
+Tg <- lapply(Tg, mas)
+u <- lapply(u, mas)
+psi <- lapply(psi,mas)
+elevation <- lapply(elevation, mas)
+
+
+###TSM NORMAL SCENARIO----
+##Runnign the function
+TeN <- mapply(Tb_lizard,Ta, Tg, u, svl, mass, psi, rho_S, elevation, doy, sun=TRUE, surface=TRUE, alpha_S=0.9, alpha_L=0.965, epsilon_s=0.965, F_d=0.8, F_r=0.5, F_a=0.5, F_g=0.5)
+
+
+##Final Substraction
+TsmN <- lapply(TeN,FUN=function(x){ctmax-x})
+
+
+
+###TSM +1.5° C SCENARIO----
+##Adding the +1.5°C to air and substrate data
+Ta1 <- lapply(Ta,FUN=function(x){x+1.5})
+Tg1 <- lapply(Tg,FUN=function(x){x+1.5})
+
+
+##Runnign the function
+Te1 <- mapply(Tb_lizard,Ta1, Tg1, u, svl, mass, psi, rho_S, elevation, doy, sun=TRUE, surface=TRUE, alpha_S=0.9, alpha_L=0.965, epsilon_s=0.965, F_d=0.8, F_r=0.5, F_a=0.5, F_g=0.5)
+
+
+#Final Substraction
+Tsm1 <- lapply(Te1,FUN=function(x){ctmax-x})
+
+
+
+###TSM +2°C SCENARIO----
+##Adding the +2°C to air and substrate data
+Ta2 <- lapply(Ta,FUN=function(x){x+2})
+Tg2 <- lapply(Tg,FUN=function(x){x+2})
+
+
+##Runnign the function
+Te2 <- mapply(Tb_lizard,Ta2, Tg2, u, svl, mass, psi, rho_S, elevation, doy, sun=TRUE, surface=TRUE, alpha_S=0.9, alpha_L=0.965, epsilon_s=0.965, F_d=0.8, F_r=0.5, F_a=0.5, F_g=0.5)
+
+
+#Final Substraction
+Tsm2 <- lapply(Te2,FUN=function(x){ctmax-x})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
