@@ -1,5 +1,5 @@
 ####
-# CREATING A DATA FRAME FOR LIZARDS WITH AVAILABLE DATA
+# CREATING A DATA FRAME FOR LEPIDOSAURIA WITH AVAILABLE DATA
 ####
 
 ### INITIAL SETUP----
@@ -8,15 +8,15 @@ fdir = "C:\\Users\\Bryan\\Google Drive\\TSMVisualization\\"
 setwd(fdir)
 
 ## Packages needed for TSM
-pkgs <- c('pdftools','tidyverse','taxize')
-install.packages(pkgs)
-lapply(pkgs, require, character.only = TRUE)
+pkgsd <- c('pdftools','tidyverse','taxize')
+install.packages(pkgsd)
+lapply(pkgsd, library, character.only = TRUE)
 
 
 ### LIZARD DATA----
 ## Global dataset for species and CTmax/min
 globtherm = read.csv("Data\\Traits\\GlobalTherm_upload_10_11_17.csv", header = TRUE, na.strings = "")
-ectotherms = subset(globtherm, Class == "Lepidosauria", select = c(Genus, Species, Class, Tmax, tmin)) # Subsetting for Lizards (Lepidosuria) only
+ectotherms = subset(globtherm, Class == "Lepidosauria", select = c(Genus, Species, Class, Tmax, REF_max)) # Subsetting for Lizards (Lepidosuria) only
 ectotherms$Binomial = paste(ectotherms$Genus, ectotherms$Species) # Pasting together species and genus names to use for matching
 
 
@@ -29,6 +29,15 @@ match1 <- match(as.character(ectotherms$Binomial), syn$.id)
 matched <- which(!is.na(match1))
 ectotherms$Synonym[matched] <- syn$syn_name[match1[matched]] #From synonym database
 ectotherms$Accepted[matched] <- syn$acc_name[match1[matched]] #From synonym database
+
+
+##Adding Topt. Synonyms and accepted names do not yield results
+Topt = read.csv("Data\\Traits\\rspb20081957supp01.csv", skip = 4, header = T)
+Topt <- Topt[-c(71:101),]
+Topt$Species <- gsub("_"," ",Topt$Species)
+match1 <- match(as.character(ectotherms$Binomial), Topt$Species)
+matched <- !is.na(match1)
+ectotherms$Topt[matched] <- Topt$newTopt[match1[matched]] #From synonym database
 
 
 ##Confirming presence of shapefiles to be used
@@ -79,10 +88,24 @@ ectotherms$SVL <- ifelse(!is.na(SVL1),SVL1,SVL2)
 
 
 ##One last subsetting for those with coplete data
-lizardsdf = subset(ectotherms, !is.na(ectotherms$Mass) & !is.na(ectotherms$SVL) & !is.na(ectotherms$Shapefile)) # Subsetting 
+lizardsdf = subset(ectotherms, !is.na(ectotherms$Tmax) & !is.na(ectotherms$Mass) & !is.na(ectotherms$SVL) & !is.na(ectotherms$Shapefile)) # Subsetting 
 
 
-###SAVING----
-saveRDS(lizardsdf,"lizardsdf.RData")
+##Saving lizards df
+saveRDS(lizardsdf,"Data\\Lepidosauria.Rda")
+write.csv(lizardsdf,"Data\\Lepidosauria.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
