@@ -10,6 +10,7 @@ lapply(pkgsp, library, character.only = TRUE)
 ### INITIAL SETUP----
 ## Setting Working Directory
 fdir = "C:\\Users\\Bryan\\Google Drive\\TSMVisualization\\"
+#fdir= "/Volumes/GoogleDrive/My\ Drive/TSMVisualization/"
 setwd(fdir)
 
 ##Selecting plot data ALL POSSIBLE DATA ARE SHOWN AS COMMENTS.
@@ -33,11 +34,13 @@ scn <- c("Normal")
 
 ##Uploading previous data for both shades
 spdata1 <- paste("TSMdfs\\",gsub(" ","_",org),"_0.Rda", sep= "") #Starting with 0 shade
+#spdata1 <- paste("TSMdfs/",gsub(" ","_",org),"_0.Rda", sep= "") #Starting with 0 shade
 load(spdata1)
 Tsm0 <- Tsmdf
 Tsm0$Shade <- c("Exposed")
 
 spdata2 <- paste("TSMdfs\\",gsub(" ","_",org),"_100.Rda", sep= "")
+#spdata2 <- paste("TSMdfs/",gsub(" ","_",org),"_100.Rda", sep= "")
 load(spdata2)
 Tsm100<- Tsmdf
 Tsm100$Shade <- c("Covered")

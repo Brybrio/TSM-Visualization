@@ -6,6 +6,7 @@
 ### INITIAL SETUP----
 ## Setting Working Directory
 fdir = "C:\\Users\\Bryan\\Google Drive\\TSMVisualization\\"
+#fdir= "/Volumes/GoogleDrive/My\ Drive/TSMVisualization/"
 setwd(fdir)
 
 ## Packages needed for TSM
@@ -15,6 +16,7 @@ lapply(pkgst, library, character.only = TRUE)
 
 ## Dataframe containing perrtaining information for Class Lepidosauria
 lizardsdf <- readRDS("Data\\Lepidosauria.Rda")
+#lizardsdf <- readRDS("Data/Lepidosauria.Rda")
 attach(lizardsdf)
 Binomial
 Synonym

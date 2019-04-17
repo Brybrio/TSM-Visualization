@@ -5,6 +5,7 @@
 ### INITIAL SETUP----
 ## Setting Working Directory
 fdir = "C:\\Users\\Bryan\\Google Drive\\TSMVisualization\\"
+#fdir= "/Volumes/GoogleDrive/My\ Drive/TSMVisualization/"
 setwd(fdir)
 
 ## Packages needed for TSM
@@ -16,6 +17,7 @@ lapply(pkgsd, library, character.only = TRUE)
 ### LIZARD DATA----
 ## Global dataset for species and CTmax/min
 globtherm = read.csv("Data\\Traits\\GlobalTherm_upload_10_11_17.csv", header = TRUE, na.strings = "")
+#globtherm = read.csv("Data/Traits/GlobalTherm_upload_10_11_17.csv", header = TRUE, na.strings = "")
 ectotherms = subset(globtherm, Class == "Lepidosauria", select = c(Genus, Species, Class, Tmax, REF_max)) # Subsetting for Lizards (Lepidosuria) only
 ectotherms$Binomial = paste(ectotherms$Genus, ectotherms$Species) # Pasting together species and genus names to use for matching
 
@@ -33,6 +35,7 @@ ectotherms$Accepted[matched] <- syn$acc_name[match1[matched]] #From synonym data
 
 ##Adding Topt. Synonyms and accepted names do not yield results
 Topt = read.csv("Data\\Traits\\rspb20081957supp01.csv", skip = 4, header = T)
+#Topt = read.csv("Data/Traits/rspb20081957supp01.csv", skip = 4, header = T)
 Topt <- Topt[-c(71:101),]
 Topt$Species <- gsub("_"," ",Topt$Species)
 match1 <- match(as.character(ectotherms$Binomial), Topt$Species)
@@ -42,6 +45,7 @@ ectotherms$Topt[matched] <- Topt$newTopt[match1[matched]] #From synonym database
 
 ##Confirming presence of shapefiles to be used
 shp <- list.files("Data\\Ranges\\REPTILES\\Files", pattern="\\.shp$") 
+#shp <- list.files("Data\\Ranges\\REPTILES\\Files", pattern="\\.shp$") 
 shp <- gsub(".shp", "", shp) #Replacing name strings for synonyms
 Shapefile1 <- ectotherms$Binomial%in%shp #Matching with directory files
 Shapefile2 <- ectotherms$Synonym%in%shp
@@ -54,6 +58,7 @@ ectotherms$Shapefile <- ifelse(!is.na(Shapefile1),Shapefile1,ifelse(is.na(Shapef
 
 ## Masses for lizards in g
 lizards <-read.csv("Data\\Traits\\jzo_696_sm_appendix-s1.csv",header = TRUE, na.strings = "")
+#lizards <-read.csv("Data/Traits/jzo_696_sm_appendix-s1.csv",header = TRUE, na.strings = "")
 #Adding first mass
 match1 <- match(as.character(ectotherms$Binomial), lizards$Species)
 matched1 <- which(!is.na(match1))
@@ -72,6 +77,7 @@ SVL1[matched1] <- ifelse(!is.na(lizards$SVL..mm.[match1[matched1]]),lizards$SVL.
 
 ## SVL in mm. Source #2
 SVLdf <- pdf_text("Data\\Traits\\geb_414_sm_apps2.pdf") %>% readr::read_lines(skip=8) # First part not usable so subsetting from after 8 lines
+#SVLdf <- pdf_text("Data/Traits/geb_414_sm_apps2.pdf") %>% readr::read_lines(skip=8) # First part not usable so subsetting from after 8 lines
 SVLdf <- as.data.frame(SVLdf) %>% separate(SVLdf,c("Family", "Taxon","Name","SVL"),sep="\\s+") # Separating strings. Only 4 and the rest are discarded
 SVLdf[SVLdf==""]  <- NA # Empty cells to NA
 SVLdf <- na.omit(SVLdf) # Deleting all empty lines
@@ -94,7 +100,8 @@ lizardsdf = subset(ectotherms, !is.na(ectotherms$Tmax) & !is.na(ectotherms$Mass)
 ##Saving lizards df
 saveRDS(lizardsdf,"Data\\Lepidosauria.Rda")
 write.csv(lizardsdf,"Data\\Lepidosauria.csv")
-
+#saveRDS(lizardsdf,"Data/Lepidosauria.Rda")
+#write.csv(lizardsdf,"Data/Lepidosauria.csv")
 
 
 
